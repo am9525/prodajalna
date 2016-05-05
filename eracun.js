@@ -149,9 +149,8 @@ var strankaIzRacuna = function(racunId, callback) {
     pb.all("SELECT Customer.* FROM Customer, Invoice \
             WHERE Customer.CustomerId = Invoice.CustomerId AND Invoice.InvoiceId = " + racunId,
     function(napaka, vrstice) {
-      console.log(vrstice);
       callback(napaka, vrstice);
-    })
+    });
 }
 
 // Izpis računa v HTML predstavitvi na podlagi podatkov iz baze
@@ -165,6 +164,7 @@ streznik.post('/izpisiRacunBaza', function(zahteva, odgovor) {
     strankaIzRacuna(sezRac, function(magicError2, stranka){
       pesmiIzRacuna(sezRac, function(magicError3, pesmi){
         if(magicError2 == null && magicError3 == null){
+          console.log(stranka[0]);
           odgovor.setHeader('content-type', 'text/xml');
           odgovor.render('eslog', {
             vizualiziraj: true,
