@@ -201,20 +201,26 @@ streznik.post('/prijava', function(zahteva, odgovor) {
   
   form.parse(zahteva, function (napaka1, polja, datoteke) {
     var napaka1 = false;
-    try {
-      var stmt = pb.prepare("\
-        INSERT INTO Customer \
-    	  (FirstName, LastName, Company, \
-    	  Address, City, State, Country, PostalCode, \
-    	  Phone, Fax, Email, SupportRepId) \
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
-      //TODO: add fields and finalize
-      stmt.run(polja.FirstName, polja.LastName, polja.Company, polja.Address, polja.City, polja.State,
-      polja.Country, polja.PostalCode, polja.Phone, polja.Fax, polja.Email, 3); 
-      stmt.finalize();
-    } catch (err) {
-      napaka1 = true;
+    //preverjanje ali ni prazen vnos 
+    if(polja.FirstName != 0 || polja.LastName != 0 || polja.Address != 0 ||
+    polja.City != 0 || polja.Country != 0 || polja.PostalCode != 0 || polja.Email != 0){
+      try {
+        var stmt = pb.prepare("\
+          INSERT INTO Customer \
+      	  (FirstName, LastName, Company, \
+      	  Address, City, State, Country, PostalCode, \
+      	  Phone, Fax, Email, SupportRepId) \
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+        //TODO: add fields and finalize
+        stmt.run(polja.FirstName, polja.LastName, polja.Company, polja.Address, polja.City, polja.State,
+        polja.Country, polja.PostalCode, polja.Phone, polja.Fax, polja.Email, 3); 
+        stmt.finalize();
+      } catch (err) {
+        napaka1 = true;
+      }
     }
+    else
+      napaka1 = true;
     if(napaka1 == false){
       //izpis sporocila in posodobitev strani
       vrniStranke(function(napaka2, stranke) {
