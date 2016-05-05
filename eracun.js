@@ -140,6 +140,7 @@ var pesmiIzRacuna = function(racunId, callback) {
     WHERE InvoiceLine.InvoiceId = Invoice.InvoiceId AND Invoice.InvoiceId = " + racunId + ")",
     function(napaka, vrstice) {
       console.log(vrstice);
+      callback(napaka, vrstice);
     })
 }
 
@@ -148,13 +149,39 @@ var strankaIzRacuna = function(racunId, callback) {
     pb.all("SELECT Customer.* FROM Customer, Invoice \
             WHERE Customer.CustomerId = Invoice.CustomerId AND Invoice.InvoiceId = " + racunId,
     function(napaka, vrstice) {
-      console.log(vrstice);
-    })
+      callback(napaka, vrstice);
+    });
 }
 
 // Izpis računa v HTML predstavitvi na podlagi podatkov iz baze
 streznik.post('/izpisiRacunBaza', function(zahteva, odgovor) {
-  odgovor.end();
+ 
+  var form = new formidable.IncomingForm();
+  // pridobimo podatke o stranki 
+  form.parse(zahteva, function(magicError, polja, datoteka){
+    var sezRac = polja.seznamRacunov;
+    //vrni podrobnosti o stranki racuna
+    strankaIzRacuna(sezRac, function(magicError2, stranka){
+      pesmiIzRacuna(sezRac, function(magicError3, pesmi){
+        if(magicError2 == null && magicError3 == null){
+          console.log(stranka[0]);
+          odgovor.setHeader('content-type', 'text/xml');
+          odgovor.render('eslog', {
+            vizualiziraj: true,
+            postavkeRacuna: pesmi,
+            podatkiStanke: stranka[0],
+          });
+        }
+        else
+          magicError = true;
+      });
+    });
+    if(magicError == true){
+      console.log("Napaka izpisa HTML racuna");
+    }
+      
+  });
+  //odgovor.end();
 })
 
 // Izpis računa v HTML predstavitvi ali izvorni XML obliki
@@ -207,6 +234,7 @@ streznik.post('/prijava', function(zahteva, odgovor) {
   
   form.parse(zahteva, function (napaka1, polja, datoteke) {
     var napaka1 = false;
+    
     //preverjanje ali ni prazen vnos 
     if(polja.FirstName != 0 || polja.LastName != 0 || polja.Address != 0 ||
     polja.City != 0 || polja.Country != 0 || polja.PostalCode != 0 || polja.Email != 0){
