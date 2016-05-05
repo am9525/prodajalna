@@ -243,11 +243,17 @@ streznik.post('/prijava', function(zahteva, odgovor) {
 
 // Prikaz strani za prijavo
 streznik.get('/prijava', function(zahteva, odgovor) {
-  vrniStranke(function(napaka1, stranke) {
+  //preprecimo da se stranka dostopa do strani prijava ce je ce prijavljena
+  if(zahteva.session.stranka)
+    odgovor.redirect("/");
+  else{
+    vrniStranke(function(napaka1, stranke) {
       vrniRacune(function(napaka2, racuni) {
         odgovor.render('prijava', {sporocilo: "", seznamStrank: stranke, seznamRacunov: racuni});  
       }) 
     });
+  }
+
 })
 
 // Prikaz nakupovalne košarice za stranko
@@ -282,6 +288,7 @@ streznik.post('/stranka', function(zahteva, odgovor) {
 // Odjava stranke
 streznik.post('/odjava', function(zahteva, odgovor) {
     zahteva.session.stranka = null;
+    zahteva.session.kosarica = null;
     odgovor.redirect('/prijava');
 })
 
