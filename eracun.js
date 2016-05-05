@@ -47,28 +47,34 @@ function davcnaStopnja(izvajalec, zanr) {
 
 // Prikaz seznama pesmi na strani
 streznik.get('/', function(zahteva, odgovor) {
-  pb.all("SELECT Track.TrackId AS id, Track.Name AS pesem, \
-          Artist.Name AS izvajalec, Track.UnitPrice * " +
-          razmerje_usd_eur + " AS cena, \
-          COUNT(InvoiceLine.InvoiceId) AS steviloProdaj, \
-          Genre.Name AS zanr \
-          FROM Track, Album, Artist, InvoiceLine, Genre \
-          WHERE Track.AlbumId = Album.AlbumId AND \
-          Artist.ArtistId = Album.ArtistId AND \
-          InvoiceLine.TrackId = Track.TrackId AND \
-          Track.GenreId = Genre.GenreId \
-          GROUP BY Track.TrackId \
-          ORDER BY steviloProdaj DESC, pesem ASC \
-          LIMIT 100", function(napaka, vrstice) {
-    if (napaka)
-      odgovor.sendStatus(500);
-    else {
-        for (var i=0; i<vrstice.length; i++)
-          vrstice[i].stopnja = davcnaStopnja(vrstice[i].izvajalec, vrstice[i].zanr);
-        odgovor.render('seznam', {seznamPesmi: vrstice});
-      }
-  })
-})
+  //odgovor.redirect("/prijava");
+  if(!zahteva.session.stranka){
+    odgovor.redirect('/prijava');
+  }
+  else{
+    pb.all("SELECT Track.TrackId AS id, Track.Name AS pesem, \
+            Artist.Name AS izvajalec, Track.UnitPrice * " +
+            razmerje_usd_eur + " AS cena, \
+            COUNT(InvoiceLine.InvoiceId) AS steviloProdaj, \
+            Genre.Name AS zanr \
+            FROM Track, Album, Artist, InvoiceLine, Genre \
+            WHERE Track.AlbumId = Album.AlbumId AND \
+            Artist.ArtistId = Album.ArtistId AND \
+            InvoiceLine.TrackId = Track.TrackId AND \
+            Track.GenreId = Genre.GenreId \
+            GROUP BY Track.TrackId \
+            ORDER BY steviloProdaj DESC, pesem ASC \
+            LIMIT 100", function(napaka, vrstice) {
+      if (napaka)
+        odgovor.sendStatus(500);
+      else {
+          for (var i=0; i<vrstice.length; i++)
+            vrstice[i].stopnja = davcnaStopnja(vrstice[i].izvajalec, vrstice[i].zanr);
+          odgovor.render('seznam', {seznamPesmi: vrstice});
+        }
+    });
+  }
+});
 
 // Dodajanje oz. brisanje pesmi iz košarice
 streznik.get('/kosarica/:idPesmi', function(zahteva, odgovor) {
@@ -221,6 +227,20 @@ streznik.post('/prijava', function(zahteva, odgovor) {
     }
     else
       napaka1 = true;
+    try {
+      var stmt = pb.prepare("\
+        INSERT INTO Customer \
+    	  (FirstName, LastName, Company, \
+    	  Address, City, State, Country, PostalCode, \
+    	  Phone, Fax, Email, SupportRepId) \
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+      //TODO: add fields and finalize
+      stmt.run(polja.FirstName, polja.LastName, polja.Company, polja.Address, polja.City, polja.State,
+      polja.Country, polja.PostalCode, polja.Phone, polja.Fax, polja.Email, 3); 
+      stmt.finalize();
+    } catch (err) {
+      napaka1 = true;
+    }
     if(napaka1 == false){
       //izpis sporocila in posodobitev strani
       vrniStranke(function(napaka2, stranke) {
@@ -243,11 +263,17 @@ streznik.post('/prijava', function(zahteva, odgovor) {
 
 // Prikaz strani za prijavo
 streznik.get('/prijava', function(zahteva, odgovor) {
-  vrniStranke(function(napaka1, stranke) {
+  //preprecimo da se stranka dostopa do strani prijava ce je ce prijavljena
+  if(zahteva.session.stranka)
+    odgovor.redirect("/");
+  else{
+    vrniStranke(function(napaka1, stranke) {
       vrniRacune(function(napaka2, racuni) {
         odgovor.render('prijava', {sporocilo: "", seznamStrank: stranke, seznamRacunov: racuni});  
       }) 
     });
+  }
+
 })
 
 // Prikaz nakupovalne košarice za stranko
@@ -255,13 +281,35 @@ streznik.post('/stranka', function(zahteva, odgovor) {
   var form = new formidable.IncomingForm();
   
   form.parse(zahteva, function (napaka1, polja, datoteke) {
-    odgovor.redirect('/')
+    try{
+      //dobi podatke o izbrani stranki
+      pb.all("SELECT FirstName, LastName, Company, Address, City, State, Country, PostalCode, \
+      Phone, Fax, Email, SupportRepId FROM Customer WHERE \
+      Customer.CustomerId == "+polja.seznamStrank, 
+      function(napaka, vrstice) {
+        // ce je bila poizvedba uspesna in smo najdli iskano stranko
+          if(vrstice.length > 0){
+            zahteva.session.stranka = vrstice[0];
+          }
+          else{
+            // ce ni bilo nobene stranke
+            napaka = true;
+          }
+          odgovor.redirect('/');
+      });
+    }
+    catch(ex){
+      napaka1 = true;
+    }
+    
   });
 })
 
 // Odjava stranke
 streznik.post('/odjava', function(zahteva, odgovor) {
-    odgovor.redirect('/prijava') 
+    zahteva.session.stranka = null;
+    zahteva.session.kosarica = null;
+    odgovor.redirect('/prijava');
 })
 
 
